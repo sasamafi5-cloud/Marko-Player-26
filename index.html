@@ -84,7 +84,7 @@
             transition: box-shadow 0.3s ease, border-radius 0.2s ease;
         }
 
-        /* AMBILIGHT SVETLO IZA PLEJERA */
+        /* AMBILIGHT PULSIRAJUĆI GLOW IZA PLEJERA */
         .player-card.playing-glow::before {
             content: '';
             position: absolute;
@@ -276,36 +276,53 @@
             box-shadow: 0px 5px 15px var(--accent-blur);
         }
 
-        /* SIGURNA I ČISTA MULTI-SELECT SEKCIJA */
+        /* UPRAVLJANJE DATOTEKAMA */
         .upload-section {
             width: 100%;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            gap: 10px;
         }
 
         .custom-file-input {
-            width: 100%;
-            height: 48px;
+            flex: 1;
+            height: 44px;
             background: var(--surface-color);
-            border-radius: 20px;
+            border-radius: 18px;
             box-shadow: var(--button-shadow);
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 700;
             color: #e2e8f0;
             border: 1px solid rgba(255, 255, 255, 0.03);
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 0.5px;
         }
 
         .custom-file-input:active { box-shadow: var(--inner-shadow); }
         .custom-file-input input[type="file"] { display: none; }
 
+        .clear-btn {
+            height: 44px;
+            padding: 0 15px;
+            background: var(--surface-color);
+            border-radius: 18px;
+            box-shadow: var(--button-shadow);
+            border: 1px solid rgba(255, 59, 0, 0.15);
+            color: #ff5252;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+        .clear-btn:active { box-shadow: var(--inner-shadow); }
+
         .track-list {
             width: 100%;
-            height: 160px;
+            height: 165px;
             overflow-y: auto;
             padding-right: 3px;
             margin-bottom: 15px;
@@ -349,7 +366,7 @@
 
         .item-type { font-size: 10px; color: var(--font-light); text-transform: uppercase; margin-top: 2px;}
 
-        /* NEOMORFNI 3D KONTROLNI PANEL ZA LIVE PODEŠAVANJA */
+        /* KONTROLNI PANEL ZA LIVE 3D SLIDERE */
         .settings-panel {
             width: 100%;
             height: 240px;
@@ -441,8 +458,8 @@
         </div>
 
         <div class="track-info">
-            <div class="track-title" id="display-title">Nema medija</div>
-            <div class="track-artist" id="display-artist">Izaberi fajlove sa desne strane</div>
+            <div class="track-title" id="display-title">Lista je prazna</div>
+            <div class="track-artist" id="display-artist">Dodaj audio / video zapise</div>
         </div>
 
         <div class="progress-container">
@@ -473,9 +490,10 @@
 
         <div class="upload-section">
             <label class="custom-file-input">
-                📂 UČITAJ AUDIO I VIDEO ZAPISE
+                ➕ DODAJ FAJLOVE
                 <input type="file" id="folder-upload" multiple accept="audio/*,video/*">
             </label>
+            <button class="clear-btn" id="btn-clear-playlist">Očisti</button>
         </div>
 
         <div class="track-list" id="playlist-container"></div>
@@ -524,11 +542,13 @@
     const fallbackArt = document.getElementById('fallback-art');
     const mainCard = document.getElementById('main-card');
     
+    // Lista ostaje sačuvana u memoriji i samo raste kako dodaješ fajlove
     let playlist = [];
     let currentIndex = 0;
     let isPlaying = false;
 
     const folderUpload = document.getElementById('folder-upload');
+    const btnClearPlaylist = document.getElementById('btn-clear-playlist');
     const playlistContainer = document.getElementById('playlist-container');
     const displayTitle = document.getElementById('display-title');
     const displayArtist = document.getElementById('display-artist');
@@ -546,14 +566,16 @@
 
     folderUpload.addEventListener('change', (e) => {
         const files = Array.from(e.target.files);
-        playlist = [];
+        if (files.length === 0) return;
+
+        const wasEmpty = playlist.length === 0;
         
         files.forEach((file) => {
             const type = file.type;
             const nameLower = file.name.toLowerCase();
             const cleanName = file.name.replace(/\.[^/.]+$/, "");
             
-            if (type.startsWith('audio/') || nameLower.endsWith('.mp3') || nameLower.endsWith('.wav') || nameLower.endsWith('.m4a')) {
+            if (type.startsWith('audio/') || nameLower.endsWith('.mp3') || nameLower.endsWith('.wav') || nameLower.endsWith('.m4a') || nameLower.endsWith('.flac')) {
                 const parts = cleanName.split('-');
                 playlist.push({
                     title: parts.length > 1 ? parts[1].trim() : parts[0].trim(),
@@ -561,7 +583,7 @@
                     url: URL.createObjectURL(file),
                     type: 'audio'
                 });
-            } else if (type.startsWith('video/') || nameLower.endsWith('.mp4') || nameLower.endsWith('.mkv') || nameLower.endsWith('.mov')) {
+            } else if (type.startsWith('video/') || nameLower.endsWith('.mp4') || nameLower.endsWith('.mkv') || nameLower.endsWith('.mov') || nameLower.endsWith('.3gp')) {
                 playlist.push({
                     title: cleanName,
                     artist: "Video Snimak",
@@ -571,11 +593,33 @@
             }
         });
 
-        if (playlist.length > 0) {
+        // Ako je lista bila prazna pre uvoza, automatski učitava prvu novu pesmu
+        if (wasEmpty && playlist.length > 0) {
             currentIndex = 0;
             loadTrack(currentIndex);
+        } else {
             renderPlaylist();
         }
+        
+        // Resetujemo vrednost inputa kako bi isti fajl mogao ponovo da se uveze ako zatreba
+        folderUpload.value = '';
+    });
+
+    // FUNKCIJA ZA BRISANJE CELE LISTE I RESETOVANJE PLEJERA
+    btnClearPlaylist.addEventListener('click', () => {
+        pauseMedia();
+        playlist = [];
+        currentIndex = 0;
+        displayTitle.innerText = "Lista je prazna";
+        displayArtist.innerText = "Dodaj audio / video zapise";
+        progressBar.style.width = '0%';
+        currentTimeEl.innerText = "0:00";
+        durationTimeEl.innerText = "0:00";
+        video.style.display = 'none';
+        fallbackArt.style.display = 'flex';
+        audio.src = '';
+        video.src = '';
+        renderPlaylist();
     });
 
     function renderPlaylist() {
