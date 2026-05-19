@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D Neumorphic Media Player</title>
+    
+    <meta name="theme-color" content="#1e2024">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <style>
+        :root {
+            --bg-color: #1a1c20;
+            --surface-color: #1e2024;
+            --font-color: #a0a5b5;
+            --font-light: #626875;
+            --accent-color: #ff2a2a;
+            --accent-blur: rgba(255, 42, 42, 0.35);
+            --shadow-blur: 16px;
+            --shadow-size: 9px;
+            --card-radius: 40px;
+            --ambilight-size: 20%;
+            
+            /* Moćne 3D Neomorfne Formule sa tvojih slika */
+            --outer-shadow: calc(var(--shadow-size) * 1) calc(var(--shadow-size) * 1) var(--shadow-blur) rgba(10, 11, 13, 1.0), 
+                            calc(var(--shadow-size) * -1) calc(var(--shadow-size) * -1) var(--shadow-blur) rgba(45, 49, 56, 0.15);
+            
+            --inner-shadow: inset 3px 3px 7px rgba(10, 11, 13, 0.85), 
+                            inset -3px -3px 7px rgba(45, 49, 56, 0.2);
+            
+            --button-shadow: 6px 6px 12px rgba(10, 11, 13, 0.9), -4px -4px 10px rgba(45, 49, 56, 0.3);
+            --button-active: inset 4px 4px 8px #0b0c0e, inset -4px -4px 8px #2d3138;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--font-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 10px;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            bottom: -50px; left: -50px;
+            width: 250px; height: 250px;
+            background: radial-gradient(circle, var(--accent-blur) 0%, transparent 70%);
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        .app-container {
+            display: flex;
+            gap: 25px;
+            max-width: 760px;
+            width: 100%;
+            justify-content: center;
+            flex-wrap: wrap;
+            position: relative;
+            z-index: 1;
+        }
+
+        .player-card {
+            background: var(--surface-color);
+            border-radius: var(--card-radius);
+            padding: 25px;
+            width: 360px;
+            height: 640px;
+            box-shadow: var(--outer-shadow);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* AMBIJENTALNI SJAJ IZA CENTRALNOG KRUGA */
+        .album-art-wrapper::after {
+            content: '';
+            position: absolute;
+            top: calc(var(--ambilight-size) * -1); 
+            left: calc(var(--ambilight-size) * -1); 
+            right: calc(var(--ambilight-size) * -1); 
+            bottom: calc(var(--ambilight-size) * -1);
+            background: radial-gradient(circle, var(--accent-blur) 0%, transparent 75%);
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            pointer-events: none;
+        }
+
+        .ambient-on .album-art-wrapper.playing-glow::after {
+            opacity: 1;
+            animation: pulseGlow 2.5s infinite alternate ease-in-out;
+        }
+
+        @keyframes pulseGlow {
+            0% { transform: scale(0.95); opacity: 0.5; }
+            100% { transform: scale(1.05); opacity: 1; }
+        }
+
+        /* VRAĆENA SIVA DUGMENCA (GORE KOD STRELICE I 3 CRTICE) */
+        .header-nav {
+            display: flex;
+            width: 100%;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .nav-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--surface-color);
+            border: none;
+            box-shadow: var(--button-shadow);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            color: var(--font-color);
+            transition: background 0.2s, box-shadow 0.2s;
+        }
+        .nav-btn:active {
+            box-shadow: var(--button-active);
+        }
+
+        .header-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--font-light);
+            font-weight: bold;
+        }
+
+        /* CENTRALNI KRUG */
+        .album-art-wrapper {
+            width: 210px;
+            height: 210px;
+            border-radius: 50%;
+            background: var(--surface-color);
+            box-shadow: var(--outer-shadow);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 25px;
+            padding: 12px;
+            cursor: pointer;
+            transition: transform 0.15s ease;
+        }
+        .album-art-wrapper:active { transform: scale(0.96); }
+
+        .album-art {
+            width: 100%; height: 100%;
+            border-radius: 50%;
+            background: #111215;
+            box-shadow: var(--inner-shadow);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .album-video {
+            width: 100%; height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+            display: none;
+        }
+
+        .album-art-fallback {
+            width: 100%; height: 100%;
+            background: radial-gradient(circle, #22252a 0%, #121316 80%);
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        .track-info { text-align: center; margin-bottom: 25px; width: 100%; }
+        .track-title { font-size: 20px; font-weight: 600; color: #e2e8f0; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 10px; }
+        .track-artist { font-size: 13px; color: var(--font-light); }
+
+        /* KONTROLE I PROGRES BAR */
+        .progress-container { width: 100%; margin-bottom: 30px; }
+        .time-stamps { display: flex; justify-content: space-between; font-size: 11px; color: var(--font-light); margin-bottom: 10px; }
+        .slider-wrapper { width: 100%; height: 8px; background: #111215; border-radius: 10px; box-shadow: var(--inner-shadow); cursor: pointer; position: relative; }
+        .progress-bar { height: 100%; width: 0%; border-radius: 10px; background: var(--accent-color); position: relative; box-shadow: 0 0 8px var(--accent-blur); }
+        .progress-handle { width: 16px; height: 16px; border-radius: 50%; background: var(--surface-color); box-shadow: var(--button-shadow); position: absolute; right: -8px; top: 50%; transform: translateY(-50%); }
+
+        .controls { display: flex; width: 100%; justify-content: space-between; align-items: center; padding: 0 15px; margin-top: auto; }
+        
+        /* Glavni sivi dugmići na dnu ekrana sa slike */
+        .control-btn { 
+            width: 55px; 
+            height: 55px; 
+            border-radius: 50%; 
+            background: var(--surface-color); 
+            border: none; 
+            box-shadow: var(--button-shadow); 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            color: var(--font-color); 
+            cursor: pointer; 
+        }
+        .control-btn:active { box-shadow: var(--button-active); }
+        
+        .control-btn.play-main { 
+            width: 70px; 
+            height: 70px; 
+            background: var(--accent-color); 
+            color: white; 
+            box-shadow: 0px 4px 15px rgba(255, 42, 42, 0.4); 
+        }
+
+        /* SKRIVENI VIDEO PANEL - AKTIVIRA SE PREKO 3 CRTICE */
+        .video-overlay-panel {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--surface-color);
+            z-index: 10;
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            transform: translateY(-100%);
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .video-overlay-panel.open { transform: translateY(0); }
+
+        .video-controls-box {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 15px;
+            background: #111215;
+            padding: 12px;
+            border-radius: 20px;
+            box-shadow: var(--inner-shadow);
+        }
+        .v-control-btn {
+            flex: 1; padding: 10px;
+            background: var(--surface-color);
+            border: none; border-radius: 12px;
+            color: #e2e8f0; font-size: 10px; font-weight: bold;
+            cursor: pointer; box-shadow: var(--button-shadow);
+            text-transform: uppercase; text-align: center;
+        }
+        .v-control-btn:active { box-shadow: var(--button-active); }
+        .v-control-btn.active-mode { background: var(--accent-color); color: white; }
+
+        /* MUZIČKA BIBLIOTEKA (DESNA STRANA) */
+        .upload-section { 
+            width: 100%; 
+            margin-bottom: 15px; 
+            display: flex; 
+            gap: 12px; 
+            align-items: center;
+        }
+        
+        .custom-file-input { 
+            flex: 1; 
+            height: 46px; 
+            background: var(--surface-color); 
+            border-radius: 20px; 
+            box-shadow: var(--button-shadow); 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            cursor: pointer; 
+            font-size: 11px; 
+            font-weight: 700; 
+            color: #e2e8f0; 
+            text-transform: uppercase; 
+        }
+        .custom-file-input:active { box-shadow: var(--button-active); }
+        .custom-file-input input[type="file"] { display: none; }
+
+        /* NOVA NEOMORFNA IKONICA ZA ČIŠĆENJE LISTE (KANTA ZA SMEĆE) */
+        .clear-btn-icon {
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            background: var(--surface-color);
+            border: none;
+            box-shadow: var(--button-shadow);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            color: #ff4d4d;
+            transition: all 0.2s;
+        }
+        .clear-btn-icon:active {
+            box-shadow: var(--button-active);
+        }
+        .clear-btn-icon svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+        }
+
+        .track-list { width: 100%; height: 145px; overflow-y: auto; margin-bottom: 15px; }
+        
+        /* IZGLED KARTICE SA SLIKE */
+        .list-item { 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            padding: 14px 18px; 
+            border-radius: 24px; 
+            margin-bottom: 12px; 
+            cursor: pointer; 
+            background: var(--surface-color); 
+            box-shadow: var(--button-shadow); 
+            position: relative; 
+        }
+        .list-item.active { box-shadow: var(--inner-shadow); background: #141518; border-left: 3px solid var(--accent-color); }
+        .list-item.active::after { content: ''; position: absolute; bottom: -30px; left: 5%; width: 90%; height: 40px; background: radial-gradient(ellipse, rgba(255, 42, 42, 0.4) 0%, transparent 75%); z-index: -1; }
+        
+        .item-details { display: flex; flex-direction: column; max-width: 80%; overflow: hidden; }
+        .item-title { font-size: 13px; font-weight: 600; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .item-type { font-size: 11px; color: var(--font-light); margin-top: 3px; }
+
+        .settings-panel { width: 100%; height: 240px; overflow-y: auto; }
+        .ambient-toggle-wrapper { display: flex; justify-content: space-between; align-items: center; background: #111215; padding: 12px 14px; border-radius: 18px; box-shadow: var(--inner-shadow); }
+        .toggle-label { font-size: 11px; font-weight: 700; color: #e2e8f0; }
+        .switch-btn { width: 55px; height: 26px; border-radius: 20px; background: var(--surface-color); box-shadow: var(--button-shadow); position: relative; cursor: pointer; }
+        .switch-btn::after { content: ''; position: absolute; width: 18px; height: 18px; border-radius: 50%; background: var(--font-light); top: 4px; left: 5px; transition: all 0.3s; }
+        .switch-btn.active { background: #111215; box-shadow: var(--inner-shadow); }
+        .switch-btn.active::after { left: 32px; background: var(--accent-color); }
+    </style>
+</head>
+<body class="ambient-on">
+
+<div class="app-container">
+
+    <div class="player-card" id="main-card">
+        <div class="header-nav">
+            <button class="nav-btn">
+                <svg viewBox="0 0 24 24" style="width:18px; height:18px; fill:currentColor;"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"/></svg>
+            </button>
+            <div class="header-title">Trenutno svira</div>
+            <button class="nav-btn" id="btn-open-videos">
+                <svg viewBox="0 0 24 24" style="width:18px; height:18px; fill:currentColor;"><path d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z"/></svg>
+            </button>
+        </div>
+
+        <div class="video-overlay-panel" id="video-panel">
+            <div class="header-nav">
+                <div class="header-title">Video Biblioteka</div>
+                <button class="nav-btn" id="btn-close-videos" style="color: var(--accent-color); font-weight: bold;">X</button>
+            </div>
+            
+            <label class="custom-file-input" style="margin-bottom: 10px;">
+                📹 + Učitaj Video Snimke
+                <input type="file" id="video-upload" multiple accept="video/*">
+            </label>
+
+            <div class="track-list" id="video-list-container" style="height: 280px;"></div>
+
+            <div class="video-controls-box">
+                <button class="v-control-btn" id="vc-play">Play</button>
+                <button class="v-control-btn" id="vc-stop">Stop</button>
+                <button class="v-control-btn" id="vc-next">Napred</button>
+                <button class="v-control-btn" id="vc-rep-one">Ponavljaj 1</button>
+                <button class="v-control-btn" id="vc-rep-all">Ponavljaj Sve</button>
+            </div>
+        </div>
+
+        <div class="album-art-wrapper" id="album-wrapper">
+            <div class="album-art">
+                <div class="album-art-fallback" id="fallback-art">
+                    <svg viewBox="0 0 24 24" style="width:45px; height:45px; color:var(--font-light);"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,22M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12.5,7A2.5,2.5 0 0,0 10,9.5V14.5A2.5,2.5 0 0,0 12.5,17A2.5,2.5 0 0,0 15,14.5V9.5A2.5,2.5 0 0,0 12.5,7Z"/></svg>
+                </div>
+                <video class="album-video" id="player-video" loop playsinline webkit-playsinline></video>
+            </div>
+        </div>
+
+        <div class="track-info">
+            <div class="track-title" id="display-title">Lista pesama je prazna</div>
+            <div class="track-artist" id="display-artist">Učitaj pesme u desnoj kartici</div>
+        </div>
+
+        <div class="progress-container">
+            <div class="time-stamps">
+                <span id="current-time">0:00</span>
+                <span id="duration-time">0:00</span>
+            </div>
+            <div class="slider-wrapper" id="slider-box">
+                <div class="progress-bar" id="progress-bar">
+                    <div class="progress-handle"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="control-btn" id="btn-prev"><svg viewBox="0 0 24 24" style="width:16px; height:16px; fill:currentColor;"><path d="M6,18V6H8V18H6M9.5,12L18,6V18L9.5,12Z"/></svg></button>
+            <button class="control-btn play-main" id="btn-play">
+                <svg viewBox="0 0 24 24" id="play-icon" style="width:22px; height:22px; fill:currentColor;"><path d="M8,5.14V19.14L19,12.14L8,5.14Z"/></svg>
+            </button>
+            <button class="control-btn" id="btn-next"><svg viewBox="0 0 24 24" style="width:16px; height:16px; fill:currentColor;"><path d="M16,18H18V6H16M6,18L14.5,12L6,6V18Z"/></svg></button>
+        </div>
+    </div>
+
+    <div class="player-card">
+        <div class="header-nav">
+            <div class="header-title" style="margin-left: auto; margin-right: auto;">Muzička Biblioteka</div>
+        </div>
+
+        <div class="upload-section">
+            <label class="custom-file-input">
+                🎵 + UČITAJ PESME
+                <input type="file" id="audio-upload" multiple accept="audio/*">
+            </label>
+            
+            <button class="clear-btn-icon" id="btn-clear-playlist" title="Očisti listu">
+                <svg viewBox="0 0 24 24">
+                    <path d="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M7,6H17V19H7V6M9,8V17H11V8H9M13,8V17H15V8H13Z"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="track-list" id="playlist-container"></div>
+
+        <div class="settings-panel">
+            <div class="ambient-toggle-wrapper">
+                <span class="toggle-label">AMBIJENTALNO SVETLO (ON/OFF)</span>
+                <div class="switch-btn active" id="ambient-switch"></div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<audio id="audio-engine"></audio>
+
+<script>
+    const audio = document.getElementById('audio-engine');
+    const video = document.getElementById('player-video');
+    const fallbackArt = document.getElementById('fallback-art');
+    const albumWrapper = document.getElementById('album-wrapper');
+    
+    let audioPlaylist = [];
+    let videoPlaylist = [];
+    let audioIndex = 0;
+    let videoIndex = 0;
+    let isPlayingAudio = false;
+    let videoRepeatMode = 'all'; 
+
+    const videoPanel = document.getElementById('video-panel');
+    const btnOpenVideos = document.getElementById('btn-open-videos');
+    const btnCloseVideos = document.getElementById('btn-close-videos');
+    const videoUpload = document.getElementById('video-upload');
+    const videoListContainer = document.getElementById('video-list-container');
+
+    const audioUpload = document.getElementById('audio-upload');
+    const playlistContainer = document.getElementById('playlist-container');
+    const displayTitle = document.getElementById('display-title');
+    const displayArtist = document.getElementById('display-artist');
+    const btnPlay = document.getElementById('btn-play');
+    const playIcon = document.getElementById('play-icon');
+    const progressBar = document.getElementById('progress-bar');
+    const sliderBox = document.getElementById('slider-box');
+    const currentTimeEl = document.getElementById('current-time');
+    const durationTimeEl = document.getElementById('duration-time');
+
+    const playPath = "M8,5.14V19.14L19,12.14L8,5.14Z";
+    const pausePath = "M14,19H18V5H14M6,19H10V5H6V19Z";
+
+    btnOpenVideos.addEventListener('click', () => videoPanel.classList.add('open'));
+    btnCloseVideos.addEventListener('click', () => videoPanel.classList.remove('open'));
+
+    audioUpload.addEventListener('change', (e) => {
+        const files = Array.from(e.target.files);
+        files.forEach(file => {
+            audioPlaylist.push({
+                title: file.name.replace(/\.[^/.]+$/, ""),
+                artist: "Audio pesma",
+                url: URL.createObjectURL(file)
+            });
+        });
+        if (audioPlaylist.length === files.length) loadAudioTrack(0);
+        renderAudioPlaylist();
+        audioUpload.value = '';
+    });
+
+    videoUpload.addEventListener('change', (e) => {
+        const files = Array.from(e.target.files);
+        files.forEach(file => {
+            videoPlaylist.push({
+                title: file.name.replace(/\.[^/.]+$/, ""),
+                url: URL.createObjectURL(file)
+            });
+        });
+        if (videoPlaylist.length === files.length) loadVideoTrack(0);
+        renderVideoPlaylist();
+        videoUpload.value = '';
+    });
+
+    function loadAudioTrack(index) {
+        if (!audioPlaylist[index]) return;
+        audioIndex = index;
+        audio.src = audioPlaylist[audioIndex].url;
+        displayTitle.innerText = audioPlaylist[audioIndex].title;
+        displayArtist.innerText = audioPlaylist[audioIndex].artist;
+        audio.ontimeupdate = updateAudioProgress;
+        if (isPlayingAudio) {
+            audio.play().catch(()=>{});
+            if(video.src) { video.muted = true; video.play().catch(()=>{}); }
+        }
+        renderAudioPlaylist();
+    }
+
+    function loadVideoTrack(index) {
+        if (!videoPlaylist[index]) return;
+        videoIndex = index;
+        video.src = videoPlaylist[videoIndex].url;
+        video.style.display = 'block';
+        fallbackArt.style.display = 'none';
+        if (isPlayingAudio) {
+            video.muted = true;
+            video.play().catch(()=>{});
+        }
+        renderVideoPlaylist();
+    }
+
+    function toggleAudio() {
+        if (audioPlaylist.length === 0) return;
+        if (isPlayingAudio) {
+            isPlayingAudio = false;
+            playIcon.setAttribute('d', playPath);
+            audio.pause();
+            if (video.src) { video.muted = false; video.play().catch(()=>{}); }
+        } else {
+            isPlayingAudio = true;
+            playIcon.setAttribute('d', pausePath);
+            audio.play().catch(()=>{});
+            if (video.src) { video.muted = true; video.play().catch(()=>{}); }
+        }
+    }
+
+    btnPlay.addEventListener('click', toggleAudio);
+    albumWrapper.addEventListener('click', toggleAudio);
+
+    document.getElementById('vc-play').addEventListener('click', () => { if (video.src) video.play().catch(()=>{}); });
+    document.getElementById('vc-stop').addEventListener('click', () => { if (video.src) { video.pause(); video.currentTime = 0; } });
+    document.getElementById('vc-next').addEventListener('click', () => {
+        if (videoPlaylist.length === 0) return;
+        videoIndex = (videoIndex + 1) % videoPlaylist.length;
+        loadVideoTrack(videoIndex);
+    });
+    
+    const btnRepOne = document.getElementById('vc-rep-one');
+    const btnRepAll = document.getElementById('vc-rep-all');
+    btnRepOne.addEventListener('click', () => { videoRepeatMode = 'one'; btnRepOne.classList.add('active-mode'); btnRepAll.classList.remove('active-mode'); });
+    btnRepAll.addEventListener('click', () => { videoRepeatMode = 'all'; btnRepAll.classList.add('active-mode'); btnRepOne.classList.remove('active-mode'); });
+
+    audio.addEventListener('ended', () => {
+        if (audioPlaylist.length === 0) return;
+        audioIndex = (audioIndex + 1) % audioPlaylist.length;
+        loadAudioTrack(audioIndex);
+    });
+
+    video.addEventListener('ended', () => {
+        if (videoPlaylist.length === 0) return;
+        if (videoRepeatMode === 'one') { video.currentTime = 0; video.play().catch(()=>{}); }
+        else if (videoRepeatMode === 'all') { videoIndex = (videoIndex + 1) % videoPlaylist.length; loadVideoTrack(videoIndex); }
+    });
+
+    function updateAudioProgress() {
+        if (audio.duration) {
+            progressBar.style.width = `${(audio.currentTime / audio.duration) * 100}%`;
+            currentTimeEl.innerText = formatTime(audio.currentTime);
+            durationTimeEl.innerText = formatTime(audio.duration);
+        }
+    }
+
+    sliderBox.addEventListener('click', (e) => {
+        if (audio.duration) audio.currentTime = (e.offsetX / sliderBox.clientWidth) * audio.duration;
+    });
+
+    function formatTime(s) {
+        const m = Math.floor(s / 60); const sec = Math.floor(s % 60);
+        return `${m}:${sec < 10 ? '0' : ''}${sec}`;
+    }
+
+    function renderAudioPlaylist() {
+        playlistContainer.innerHTML = '';
+        audioPlaylist.forEach((track, index) => {
+            const row = document.createElement('div');
+            row.className = `list-item ${index === audioIndex ? 'active' : ''}`;
+            row.innerHTML = `<div class="item-details"><span class="item-title">${track.title}</span><span class="item-type">🎵 Audio</span></div>`;
+            row.addEventListener('click', () => loadAudioTrack(index));
+            playlistContainer.appendChild(row);
+        });
+    }
+
+    function renderVideoPlaylist() {
+        videoListContainer.innerHTML = '';
+        videoPlaylist.forEach((track, index) => {
+            const row = document.createElement('div');
+            row.className = `list-item ${index === videoIndex ? 'active' : ''}`;
+            row.innerHTML = `<div class="item-details"><span class="item-title" style="color:#ff2a2a">${track.title}</span><span class="item-type">📹 Video snimak</span></div>`;
+            row.addEventListener('click', () => loadVideoTrack(index));
+            videoListContainer.appendChild(row);
+        });
+    }
+
+    document.getElementById('btn-clear-playlist').addEventListener('click', () => {
+        audio.pause(); audio.src = ''; audioPlaylist = []; renderAudioPlaylist();
+        displayTitle.innerText = "Lista pesama je prazna";
+    });
+
+    const ambientSwitch = document.getElementById('ambient-switch');
+    ambientSwitch.addEventListener('click', () => {
+        const isOn = ambientSwitch.classList.toggle('active');
+        if (isOn) document.body.classList.add('ambient-on'); else document.body.classList.remove('ambient-on');
+    });
+</script>
+</body>
+</html>
